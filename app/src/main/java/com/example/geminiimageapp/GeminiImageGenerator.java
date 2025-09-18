@@ -6,18 +6,16 @@ import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
-import android.util.Base64;
 import android.util.Log;
 
 import com.google.ai.client.generativeai.GenerativeModel;
 import com.google.ai.client.generativeai.java.GenerativeModelFutures;
+import com.google.ai.client.generativeai.type.Blob;
 import com.google.ai.client.generativeai.type.Content;
 import com.google.ai.client.generativeai.type.GenerateContentResponse;
-import com.google.ai.client.generativeai.type.GenerationConfig;
 import com.google.ai.client.generativeai.type.Part;
-import com.google.common.util.concurrent.FutureCallback;
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.protobuf.ByteString;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -35,7 +33,7 @@ import java.util.concurrent.Executors;
 public class GeminiImageGenerator {
     private static final String TAG = "GeminiImageGenerator";
     private static final String MODEL_NAME = "gemini-2.5-flash-image-preview";
-    
+
     private Context context;
     private String apiKey;
     private final Executor executor = Executors.newSingleThreadExecutor();
@@ -76,9 +74,9 @@ public class GeminiImageGenerator {
                 // 构建提示词
                 String bodyInfo = lolication.isEmpty() ? "" : "除了胸部外";
                 String textInput = buildPrompt(scene, lolication, bodyInfo, pos);
-                
+
                 mainHandler.post(() -> callback.onProgress("正在初始化Gemini模型..."));
-                
+
                 // 初始化Gemini客户端
                 GenerativeModel model = new GenerativeModel(
                         MODEL_NAME,
@@ -94,49 +92,66 @@ public class GeminiImageGenerator {
                     for (int attempt = 0; attempt < maxRetries && !success; attempt++) {
                         final int currentOutput = i + 1;
                         final int currentAttempt = attempt + 1;
-                        
+
                         mainHandler.post(() -> callback.onProgress(
-                                String.format("正在生成第%d张图片 (尝试 %d/%d)...", 
+                                String.format("正在生成第%d张图片 (尝试 %d/%d)...",
                                         currentOutput, currentAttempt, maxRetries)));
-                        
+
                         try {
-                            // 准备内容
-                            List<Part> parts = new ArrayList<>();
-                            parts.add(Part.fromBitmap(inputBitmap));
-                            parts.add(Part.fromText(textInput));
-                            Content content = Content.fromParts(parts);
-                            
+                            // Bitmap -> Part
+                            ByteArrayOutputStream stream = new ByteArrayOutputStream();
+                            inputBitmap.compress(Bitmap.CompressFormat.PNG, 100, stream);
+                            byte[] imageBytes = stream.toByteArray();
+
+                            Part imagePart = Part.newBuilder()
+                                    .setInlineData(Blob.newBuilder()
+                                            .setMimeType("image/png")
+                                            .setData(ByteString.copyFrom(imageBytes))
+                                            .build())
+                                    .build();
+
+                            // 文本 -> Part
+                            Part textPart = Part.newBuilder()
+                                    .setText(textInput)
+                                    .build();
+
+                            // Content
+                            Content content = Content.newBuilder()
+                                    .addParts(imagePart)
+                                    .addParts(textPart)
+                                    .build();
+
                             // 发送请求
-                            ListenableFuture<GenerateContentResponse> future = 
+                            ListenableFuture<GenerateContentResponse> future =
                                     modelFutures.generateContent(content);
-                            
-                            // 处理响应
+
+                            // 获取响应（同步方式）
                             GenerateContentResponse response = future.get();
-                            
-                            if (response != null && response.getCandidates() != null && 
+
+                            if (response != null && response.getCandidates() != null &&
                                     !response.getCandidates().isEmpty()) {
-                                
+
                                 List<Part> responseParts = response.getCandidates().get(0)
                                         .getContent().getParts();
-                                
+
                                 for (Part part : responseParts) {
-                                    if (part.getInlineData() != null) {
-                                        byte[] imageData = part.getInlineData().getData();
+                                    if (part.hasInlineData()) {
+                                        byte[] imageData = part.getInlineData().getData().toByteArray();
                                         Bitmap resultBitmap = BitmapFactory.decodeByteArray(
                                                 imageData, 0, imageData.length);
-                                        
+
                                         if (resultBitmap != null) {
                                             // 保存图片
-                                            String filename = String.format("%s_%d.png", 
+                                            String filename = String.format("%s_%d.png",
                                                     baseName, System.currentTimeMillis());
                                             File outputFile = new File(saveDir, filename);
-                                            
+
                                             try (FileOutputStream out = new FileOutputStream(outputFile)) {
                                                 resultBitmap.compress(Bitmap.CompressFormat.PNG, 100, out);
                                                 resultBitmaps.add(resultBitmap);
                                                 savedFilePaths.add(outputFile.getAbsolutePath());
                                                 success = true;
-                                                
+
                                                 mainHandler.post(() -> callback.onProgress(
                                                         String.format("第%d张图片生成成功!", currentOutput)));
                                                 break;
@@ -145,20 +160,20 @@ public class GeminiImageGenerator {
                                     }
                                 }
                             }
-                            
+
                             if (!success) {
                                 mainHandler.post(() -> callback.onProgress(
-                                        String.format("第%d张图片 - 第%d次尝试失败: 无图像数据", 
+                                        String.format("第%d张图片 - 第%d次尝试失败: 无图像数据",
                                                 currentOutput, currentAttempt)));
                             }
-                            
+
                         } catch (Exception e) {
                             Log.e(TAG, "生成失败", e);
                             mainHandler.post(() -> callback.onProgress(
-                                    String.format("第%d张图片 - 第%d次尝试失败: %s", 
+                                    String.format("第%d张图片 - 第%d次尝试失败: %s",
                                             currentOutput, currentAttempt, e.getMessage())));
                         }
-                        
+
                         // 避免频繁请求
                         if (!success && attempt < maxRetries - 1) {
                             try {
@@ -168,17 +183,18 @@ public class GeminiImageGenerator {
                             }
                         }
                     }
-                    
+
                     if (!success) {
+                        final int currentOutputFinal = i + 1;
                         mainHandler.post(() -> callback.onProgress(
-                                String.format("第%d张图片已达到最大重试次数，仍未成功。", currentOutput)));
+                                String.format("第%d张图片已达到最大重试次数，仍未成功。", currentOutputFinal)));
                     }
                 }
-                
+
                 // 返回结果
                 final List<Bitmap> finalResultBitmaps = resultBitmaps;
                 final List<String> finalSavedFilePaths = savedFilePaths;
-                
+
                 mainHandler.post(() -> {
                     if (!finalResultBitmaps.isEmpty()) {
                         callback.onSuccess(finalResultBitmaps, finalSavedFilePaths);
@@ -186,7 +202,7 @@ public class GeminiImageGenerator {
                         callback.onFailure("未能生成任何图片");
                     }
                 });
-                
+
             } catch (Exception e) {
                 Log.e(TAG, "生成过程中发生错误", e);
                 mainHandler.post(() -> callback.onFailure("生成过程中发生错误: " + e.getMessage()));
@@ -195,9 +211,9 @@ public class GeminiImageGenerator {
     }
 
     private String buildPrompt(String scene, String lolication, String bodyInfo, String pos) {
-        return "一张顶级专业cosplay摄影作品。主角是一位身高148cm顶尖的可爱中国女coser，她拥有姣好的面部，化着淡妆，挺翘的鼻子，美瞳，化妆，白皮肤，" 
-                + lolication + "，光滑细腻的肌肤。她通过极其精致的妆容和神态表演，完美还原了图片主体的气质、发型和标志性表情。身材" 
-                + bodyInfo + "和图片一致。头发发质自然。她完整地穿着图片中的服装" 
+        return "一张顶级专业cosplay摄影作品。主角是一位身高148cm顶尖的可爱中国女coser，她拥有姣好的面部，化着淡妆，挺翘的鼻子，美瞳，化妆，白皮肤，"
+                + lolication + "，光滑细腻的肌肤。她通过极其精致的妆容和神态表演，完美还原了图片主体的气质、发型和标志性表情。身材"
+                + bodyInfo + "和图片一致。头发发质自然。她完整地穿着图片中的服装"
                 + pos + "。服装材质表现出极高的真实感，有清晰的布料纹理、皮革光泽、丝袜质感和自然褶皱。年龄一致。\n"
                 + "完全重塑图片光影及质感。场景位于" + scene + "中。明亮丰富打光，光照细节丰富。\n"
                 + "最终画面要求顶级相机拍摄，RAW照片质感，皮肤纹理真实细腻，光影层次丰富。\n"
