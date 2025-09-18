@@ -20,14 +20,30 @@ jobs:
         distribution: 'temurin'
         cache: gradle
     
-    - name: Setup Gradle
-      uses: gradle/actions/setup-gradle@v3
+    - name: Create Gradle Wrapper Files
+      run: |
+        mkdir -p gradle/wrapper
+        echo 'distributionBase=GRADLE_USER_HOME' > gradle/wrapper/gradle-wrapper.properties
+        echo 'distributionPath=wrapper/dists' >> gradle/wrapper/gradle-wrapper.properties
+        echo 'distributionUrl=https\://services.gradle.org/distributions/gradle-8.0-bin.zip' >> gradle/wrapper/gradle-wrapper.properties
+        echo 'zipStoreBase=GRADLE_USER_HOME' >> gradle/wrapper/gradle-wrapper.properties
+        echo 'zipStorePath=wrapper/dists' >> gradle/wrapper/gradle-wrapper.properties
+        
+        # Download gradle-wrapper.jar
+        curl -o gradle/wrapper/gradle-wrapper.jar https://github.com/gradle/gradle/raw/v8.0.0/gradle/wrapper/gradle-wrapper.jar
+        
+        # Create gradlew script if it doesn't exist
+        if [ ! -f gradlew ]; then
+          curl -o gradlew https://raw.githubusercontent.com/gradle/gradle/v8.0.0/gradle/wrapper/gradlew
+          chmod +x gradlew
+        fi
+        
+        # Create gradlew.bat script if it doesn't exist
+        if [ ! -f gradlew.bat ]; then
+          curl -o gradlew.bat https://raw.githubusercontent.com/gradle/gradle/v8.0.0/gradle/wrapper/gradlew.bat
+        fi
       
-    - name: Generate Gradle Wrapper
-      run: gradle wrapper --gradle-version 8.0
-      
-    - name: Grant execute permission for gradlew
-      run: chmod +x gradlew
+
       
     - name: Build with Gradle
       run: ./gradlew build
