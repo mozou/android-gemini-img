@@ -8,16 +8,10 @@ import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
 
-import com.google.ai.client.generativeai.GenerativeModel;
-import com.google.ai.client.generativeai.java.GenerativeModelFutures;
-import com.google.ai.client.generativeai.type.Blob;
-import com.google.ai.client.generativeai.type.Content;
-import com.google.ai.client.generativeai.type.GenerateContentResponse;
-import com.google.ai.client.generativeai.type.Part;
-import com.google.common.util.concurrent.ListenableFuture;
-import com.google.protobuf.ByteString;
+import com.google.genai.client.GoogleGenerativeAIClient;
+import com.google.genai.client.models.ImageGenerationRequest;
+import com.google.genai.client.models.ImageGenerationResponse;
 
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -32,7 +26,6 @@ import java.util.concurrent.Executors;
 
 public class GeminiImageGenerator {
     private static final String TAG = "GeminiImageGenerator";
-    private static final String MODEL_NAME = "gemini-2.5-flash-image-preview";
 
     private Context context;
     private String apiKey;
@@ -55,34 +48,26 @@ public class GeminiImageGenerator {
 
     public void generate(Uri imageUri, String scene, int numOutputs, int maxRetries,
                          String lolication, String pos, String saveRoot, GenerationCallback callback) {
+
         executor.execute(() -> {
             try {
-                // 读取输入图片
                 Bitmap inputBitmap = getBitmapFromUri(imageUri);
                 if (inputBitmap == null) {
                     mainHandler.post(() -> callback.onFailure("无法读取输入图片"));
                     return;
                 }
 
-                // 创建保存目录
                 String baseName = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(new Date());
                 File saveDir = new File(saveRoot, baseName);
-                if (!saveDir.exists()) {
-                    saveDir.mkdirs();
-                }
+                if (!saveDir.exists()) saveDir.mkdirs();
 
-                // 构建提示词
-                String bodyInfo = lolication.isEmpty() ? "" : "除了胸部外";
-                String textInput = buildPrompt(scene, lolication, bodyInfo, pos);
+                String prompt = buildPrompt(scene, lolication, pos);
 
                 mainHandler.post(() -> callback.onProgress("正在初始化Gemini模型..."));
 
-                // 初始化Gemini客户端
-                GenerativeModel model = new GenerativeModel(
-                        MODEL_NAME,
-                        apiKey
-                );
-                GenerativeModelFutures modelFutures = GenerativeModelFutures.from(model);
+                GoogleGenerativeAIClient client = new GoogleGenerativeAIClient.Builder()
+                        .setApiKey(apiKey)
+                        .build();
 
                 List<Bitmap> resultBitmaps = new ArrayList<>();
                 List<String> savedFilePaths = new ArrayList<>();
@@ -98,73 +83,35 @@ public class GeminiImageGenerator {
                                         currentOutput, currentAttempt, maxRetries)));
 
                         try {
-                            // Bitmap -> Part
-                            ByteArrayOutputStream stream = new ByteArrayOutputStream();
-                            inputBitmap.compress(Bitmap.CompressFormat.PNG, 100, stream);
-                            byte[] imageBytes = stream.toByteArray();
-
-                            Part imagePart = Part.newBuilder()
-                                    .setInlineData(Blob.newBuilder()
-                                            .setMimeType("image/png")
-                                            .setData(ByteString.copyFrom(imageBytes))
-                                            .build())
+                            ImageGenerationRequest request = ImageGenerationRequest.builder()
+                                    .setPrompt(prompt)
+                                    .setNumImages(1)
                                     .build();
 
-                            // 文本 -> Part
-                            Part textPart = Part.newBuilder()
-                                    .setText(textInput)
-                                    .build();
+                            ImageGenerationResponse response = client.generateImage(request);
 
-                            // Content
-                            Content content = Content.newBuilder()
-                                    .addParts(imagePart)
-                                    .addParts(textPart)
-                                    .build();
+                            if (response != null && !response.getImages().isEmpty()) {
+                                byte[] imageData = response.getImages().get(0).getData();
+                                Bitmap resultBitmap = BitmapFactory.decodeByteArray(imageData, 0, imageData.length);
 
-                            // 发送请求
-                            ListenableFuture<GenerateContentResponse> future =
-                                    modelFutures.generateContent(content);
-
-                            // 获取响应（同步方式）
-                            GenerateContentResponse response = future.get();
-
-                            if (response != null && response.getCandidates() != null &&
-                                    !response.getCandidates().isEmpty()) {
-
-                                List<Part> responseParts = response.getCandidates().get(0)
-                                        .getContent().getParts();
-
-                                for (Part part : responseParts) {
-                                    if (part.hasInlineData()) {
-                                        byte[] imageData = part.getInlineData().getData().toByteArray();
-                                        Bitmap resultBitmap = BitmapFactory.decodeByteArray(
-                                                imageData, 0, imageData.length);
-
-                                        if (resultBitmap != null) {
-                                            // 保存图片
-                                            String filename = String.format("%s_%d.png",
-                                                    baseName, System.currentTimeMillis());
-                                            File outputFile = new File(saveDir, filename);
-
-                                            try (FileOutputStream out = new FileOutputStream(outputFile)) {
-                                                resultBitmap.compress(Bitmap.CompressFormat.PNG, 100, out);
-                                                resultBitmaps.add(resultBitmap);
-                                                savedFilePaths.add(outputFile.getAbsolutePath());
-                                                success = true;
-
-                                                mainHandler.post(() -> callback.onProgress(
-                                                        String.format("第%d张图片生成成功!", currentOutput)));
-                                                break;
-                                            }
-                                        }
+                                if (resultBitmap != null) {
+                                    File outputFile = new File(saveDir,
+                                            String.format("%s_%d.png", baseName, System.currentTimeMillis()));
+                                    try (FileOutputStream out = new FileOutputStream(outputFile)) {
+                                        resultBitmap.compress(Bitmap.CompressFormat.PNG, 100, out);
+                                        resultBitmaps.add(resultBitmap);
+                                        savedFilePaths.add(outputFile.getAbsolutePath());
+                                        success = true;
+                                        mainHandler.post(() -> callback.onProgress(
+                                                String.format("第%d张图片生成成功!", currentOutput)));
+                                        break;
                                     }
                                 }
                             }
 
                             if (!success) {
                                 mainHandler.post(() -> callback.onProgress(
-                                        String.format("第%d张图片 - 第%d次尝试失败: 无图像数据",
-                                                currentOutput, currentAttempt)));
+                                        String.format("第%d张图片 - 第%d次尝试失败", currentOutput, currentAttempt)));
                             }
 
                         } catch (Exception e) {
@@ -174,30 +121,20 @@ public class GeminiImageGenerator {
                                             currentOutput, currentAttempt, e.getMessage())));
                         }
 
-                        // 避免频繁请求
-                        if (!success && attempt < maxRetries - 1) {
-                            try {
-                                Thread.sleep(2000);
-                            } catch (InterruptedException e) {
-                                Thread.currentThread().interrupt();
-                            }
-                        }
+                        if (!success && attempt < maxRetries - 1) Thread.sleep(2000);
                     }
 
                     if (!success) {
-                        final int currentOutputFinal = i + 1;
                         mainHandler.post(() -> callback.onProgress(
-                                String.format("第%d张图片已达到最大重试次数，仍未成功。", currentOutputFinal)));
+                                String.format("第%d张图片已达到最大重试次数，仍未成功。", i + 1)));
                     }
                 }
 
-                // 返回结果
-                final List<Bitmap> finalResultBitmaps = resultBitmaps;
-                final List<String> finalSavedFilePaths = savedFilePaths;
-
+                final List<Bitmap> finalBitmaps = resultBitmaps;
+                final List<String> finalPaths = savedFilePaths;
                 mainHandler.post(() -> {
-                    if (!finalResultBitmaps.isEmpty()) {
-                        callback.onSuccess(finalResultBitmaps, finalSavedFilePaths);
+                    if (!finalBitmaps.isEmpty()) {
+                        callback.onSuccess(finalBitmaps, finalPaths);
                     } else {
                         callback.onFailure("未能生成任何图片");
                     }

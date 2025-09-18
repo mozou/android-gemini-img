@@ -26,7 +26,7 @@ android {
 }
 
 dependencies {
-    implementation "com.google.ai:client:0.8.0"   // 请替换为你实际使用的最新版本
+    implementation "com.google.genai:google-genai:1.0.0"
     implementation "com.google.guava:guava:32.1.2-android"
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'com.google.android.material:material:1.10.0'
