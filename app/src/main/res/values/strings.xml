@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Gemini图像生成器</string>
+    <string name="api_key_hint">请输入Gemini API密钥</string>
+    <string name="scene_hint">场景描述（默认：漫展）</string>
+    <string name="num_outputs_hint">生成图片数量（默认：1）</string>
+    <string name="max_retries_hint">最大重试次数（默认：3）</string>
+    <string name="lolication_hint">身材特征（可选）</string>
+    <string name="pos_hint">姿态描述（默认：保持原有姿态）</string>
+    <string name="select_image">选择图片</string>
+    <string name="generate_image">生成图片</string>
+    <string name="image_preview">图片预览</string>
+    <string name="result_image">结果图片</string>
+    <string name="save_image">保存图片</string>
+    <string name="processing">处理中...</string>
+    <string name="error_api_key">请输入API密钥</string>
+    <string name="error_image">请选择一张图片</string>
+    <string name="success_generate">图片生成成功</string>
+    <string name="error_generate">图片生成失败</string>
+    <string name="success_save">图片保存成功</string>
+    <string name="error_save">图片保存失败</string>
+</resources>
