@@ -17,6 +17,11 @@ jobs:
     - name: Clean Gradle cache
       run: rm -rf ~/.gradle/caches/modules-2/files-2.1/com.fasterxml.jackson.core/
 
+    - name: Clean Gradle cache
+      run: |
+        ./gradlew --stop
+        rm -rf ~/.gradle/caches/modules-2/files-2.1/com.fasterxml.jackson.core/
+        rm -rf ~/.gradle/caches/modules-2/files-2.1/com.fasterxml.jackson.core.jackson-databind/
     
     - name: Set up JDK 17
       uses: actions/setup-java@v4
