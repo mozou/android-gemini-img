@@ -9,8 +9,10 @@ on:
       - main
 
 jobs:
-  build:
+  build-and-release:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # Required for softprops/action-gh-release to create a release
 
     steps:
       - name: Checkout code
@@ -24,19 +26,19 @@ jobs:
           cache: gradle
 
       - name: Grant execute permission for gradlew
-        run: chmod +x gradlew
+        run: chmod +x ./gradlew
 
       - name: Build with Gradle
         run: ./gradlew build
 
-      - name: Build Release APK
+      - name: Build unsigned APK
         run: ./gradlew assembleRelease
 
-      - name: Release APK
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: v${{ github.run_number }}
-          name: Release v${{ github.run_number }}
+          tag_name: "v${{ github.run_number }}"
+          name: "Release v${{ github.run_number }}"
           files: app/build/outputs/apk/release/app-release-unsigned.apk
           draft: false
           prerelease: false
