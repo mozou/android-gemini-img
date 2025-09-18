@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    # 1. 拉取代码
+    # 1. Checkout 代码
     - uses: actions/checkout@v4
 
     # 2. 设置 JDK 17
@@ -26,7 +26,7 @@ jobs:
     - name: Make gradlew executable
       run: chmod +x ./gradlew
 
-    # 4. 缓存 Gradle 依赖
+    # 4. 缓存 Gradle
     - name: Cache Gradle packages
       uses: actions/cache@v4
       with:
@@ -41,7 +41,7 @@ jobs:
     - name: Clean Jackson cache
       run: rm -rf ~/.gradle/caches/modules-2/files-2.1/com.fasterxml.jackson.core/
 
-    # 6. 构建 APK
+    # 6. Build APK
     - name: Build Debug APK
       run: ./gradlew assembleDebug --no-daemon --stacktrace
 
