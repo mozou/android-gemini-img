@@ -1,0 +1,18 @@
+<![CDATA[<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+  <path
+      android:pathData="M31,69.5L31,39.5C31,35.91 33.91,33 37.5,33L71.5,33C75.09,33 78,35.91 78,39.5L78,69.5C78,73.09 75.09,76 71.5,76L37.5,76C33.91,76 31,73.09 31,69.5Z"
+      android:strokeWidth="2"
+      android:strokeColor="#FFFFFF"/>
+  <path
+      android:pathData="M42,54.5m-6,0a6,6 0,1 1,12 0a6,6 0,1 1,-12 0"
+      android:fillColor="#FFFFFF"/>
+  <path
+      android:pathData="M67,54.5m-7,0a7,7 0,1 1,14 0a7,7 0,1 1,-14 0"
+      android:fillColor="#FFFFFF"/>
+</vector>
+]]>
