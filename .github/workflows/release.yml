@@ -1,4 +1,4 @@
-<![CDATA[name: Android CI
+<![CDATA[name: Android Release
 
 on:
   push:
@@ -7,9 +7,10 @@ on:
 
 jobs:
   build-and-release:
+    name: Build and Release
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
 
       - name: Set up JDK 17
@@ -19,15 +20,24 @@ jobs:
           distribution: 'temurin'
           cache: gradle
 
-      - name: Grant execute permission for gradlew
+      - name: Make gradlew executable
         run: chmod +x ./gradlew
 
-      - name: Build unsigned APK
+      - name: Build APK
         run: ./gradlew assembleRelease
 
-      - name: Create Release
-        uses: ncipollo/release-action@v1
+      - name: Upload APK as artifact
+        uses: actions/upload-artifact@v4
         with:
-          artifacts: "app/build/outputs/apk/release/app-release-unsigned.apk"
-          token: ${{ secrets.GITHUB_TOKEN }}
+          name: app-release-unsigned
+          path: app/build/outputs/apk/release/app-release-unsigned.apk
+
+      - name: Automatic Release
+        uses: marvinpinto/action-automatic-releases@latest
+        with:
+          repo_token: "${{ secrets.GITHUB_TOKEN }}"
+          automatic_release_tag: "latest"
+          prerelease: false
+          files: |
+            app/build/outputs/apk/release/app-release-unsigned.apk
 ]]>
