@@ -12,20 +12,22 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+    # 1. 拉取代码
     - uses: actions/checkout@v4
 
+    # 2. 设置 JDK 17
     - name: Set up JDK 17
       uses: actions/setup-java@v4
       with:
+        distribution: temurin
         java-version: '17'
-        distribution: 'temurin'
 
-    - name: Stop Gradle daemon & clean Jackson cache
-      run: |
-        ./gradlew --stop || true
-        rm -rf ~/.gradle/caches/modules-2/files-2.1/com.fasterxml.jackson.core/
+    # 3. 确保 gradlew 可执行
+    - name: Make gradlew executable
+      run: chmod +x ./gradlew
 
-    - name: Cache Gradle dependencies
+    # 4. 缓存 Gradle 依赖
+    - name: Cache Gradle packages
       uses: actions/cache@v4
       with:
         path: |
@@ -35,9 +37,15 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-gradle-
 
+    # 5. 清理 Jackson 缓存（防止错误版本残留）
+    - name: Clean Jackson cache
+      run: rm -rf ~/.gradle/caches/modules-2/files-2.1/com.fasterxml.jackson.core/
+
+    # 6. 构建 APK
     - name: Build Debug APK
       run: ./gradlew assembleDebug --no-daemon --stacktrace
 
+    # 7. 上传 APK
     - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
