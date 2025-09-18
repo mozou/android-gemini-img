@@ -3,6 +3,7 @@ plugins {
 }
 
 android {
+    namespace "com.example.geminiimageapp"
     compileSdkVersion 34
     defaultConfig {
         applicationId "com.example.geminiimageapp"
