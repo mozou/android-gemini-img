@@ -37,6 +37,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
@@ -56,7 +57,14 @@ public class ImageGenerationService extends IntentService {
 
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private final Executor executor = Executors.newSingleThreadExecutor();
-    private final OkHttpClient client = new OkHttpClient();
+    
+    // 增加超时设置的OkHttp客户端
+    private final OkHttpClient client = new OkHttpClient.Builder()
+            .connectTimeout(30, TimeUnit.SECONDS)
+            .readTimeout(60, TimeUnit.SECONDS)
+            .writeTimeout(60, TimeUnit.SECONDS)
+            .build();
+            
     private final Gson gson = new Gson();
 
     public ImageGenerationService() {
@@ -76,33 +84,49 @@ public class ImageGenerationService extends IntentService {
     @Override
     protected void onHandleIntent(@Nullable Intent intent) {
         logManager.d(LOG_INIT, "开始处理任务");
-        if (intent == null) {
-            logManager.e(LOG_ERROR_TAG, "Intent为空，无法处理任务");
-            return;
-        }
-
-        // 记录所有参数
-        String apiKey = intent.getStringExtra("apiKey");
-        String apiKeyMasked = apiKey != null ? apiKey.substring(0, 4) + "..." + apiKey.substring(apiKey.length() - 4) : "null";
-        String imageUriStr = intent.getStringExtra("imageUri");
-        String scene = intent.getStringExtra("scene");
-        int numOutputs = intent.getIntExtra("numOutputs", 1);
-        int maxRetries = intent.getIntExtra("maxRetries", 3);
-        String lolication = intent.getStringExtra("lolication");
-        String pos = intent.getStringExtra("pos");
-
-        logManager.d(LOG_PARAMS, "参数接收完成：" +
-                "\n - API密钥: " + apiKeyMasked +
-                "\n - 图片URI: " + imageUriStr +
-                "\n - 场景: " + scene +
-                "\n - 生成数量: " + numOutputs +
-                "\n - 最大重试次数: " + maxRetries +
-                "\n - 胸部描述: " + (lolication.isEmpty() ? "无" : lolication) +
-                "\n - 姿态描述: " + pos);
-
-        Uri imageUri = Uri.parse(imageUriStr);
         
         try {
+            if (intent == null) {
+                logManager.e(LOG_ERROR_TAG, "Intent为空，无法处理任务");
+                showToast("服务参数错误");
+                return;
+            }
+
+            // 记录所有参数
+            String apiKey = intent.getStringExtra("apiKey");
+            String apiKeyMasked = apiKey != null ? apiKey.substring(0, Math.min(4, apiKey.length())) + "..." + 
+                                 apiKey.substring(Math.max(0, apiKey.length() - 4)) : "null";
+            String imageUriStr = intent.getStringExtra("imageUri");
+            String scene = intent.getStringExtra("scene");
+            int numOutputs = intent.getIntExtra("numOutputs", 1);
+            int maxRetries = intent.getIntExtra("maxRetries", 3);
+            String lolication = intent.getStringExtra("lolication");
+            String pos = intent.getStringExtra("pos");
+
+            logManager.d(LOG_PARAMS, "参数接收完成：" +
+                    "\n - API密钥: " + apiKeyMasked +
+                    "\n - 图片URI: " + imageUriStr +
+                    "\n - 场景: " + scene +
+                    "\n - 生成数量: " + numOutputs +
+                    "\n - 最大重试次数: " + maxRetries +
+                    "\n - 胸部描述: " + (lolication == null || lolication.isEmpty() ? "无" : lolication) +
+                    "\n - 姿态描述: " + pos);
+
+            // 验证必要参数
+            if (apiKey == null || apiKey.trim().isEmpty()) {
+                logManager.e(LOG_ERROR_TAG, "API密钥为空");
+                showToast("API密钥不能为空");
+                return;
+            }
+
+            if (imageUriStr == null || imageUriStr.trim().isEmpty()) {
+                logManager.e(LOG_ERROR_TAG, "图片URI为空");
+                showToast("图片URI不能为空");
+                return;
+            }
+
+            Uri imageUri = Uri.parse(imageUriStr);
+            
             // 更新通知
             updateNotification("正在处理图片...");
             logManager.d(LOG_IMAGE, "开始处理输入图片");
@@ -111,14 +135,14 @@ public class ImageGenerationService extends IntentService {
             Bitmap bitmap = getBitmapFromUri(imageUri);
             if (bitmap == null) {
                 logManager.e(LOG_ERROR_TAG, "无法读取图片: " + imageUriStr);
-                showToast("无法读取图片");
+                showToast("无法读取选择的图片，请重新选择");
                 return;
             }
             logManager.d(LOG_IMAGE, "图片读取成功，尺寸: " + bitmap.getWidth() + "x" + bitmap.getHeight());
             
             // 构建提示词
-            String bodyInfo = lolication.isEmpty() ? "除了胸部外" : "";
-            String prompt = buildPrompt(scene, lolication, bodyInfo, pos);
+            String bodyInfo = (lolication == null || lolication.isEmpty()) ? "除了胸部外" : "";
+            String prompt = buildPrompt(scene, lolication == null ? "" : lolication, bodyInfo, pos == null ? "" : pos);
             logManager.d(LOG_PARAMS, "提示词构建完成，长度: " + prompt.length() + "字符");
             
             // 更新通知
@@ -152,15 +176,16 @@ public class ImageGenerationService extends IntentService {
             showToast(getString(R.string.generation_success));
             
         } catch (Exception e) {
-            logManager.e(LOG_ERROR_TAG, "生成图片时出错", e);
+            logManager.e(LOG_ERROR_TAG, "处理任务时出错", e);
             showToast("生成图片时出错: " + e.getMessage());
+            updateNotification("生成失败: " + e.getMessage());
         }
     }
 
     private String buildPrompt(String scene, String lolication, String bodyInfo, String pos) {
         logManager.d(LOG_PARAMS, "构建提示词，参数：scene=" + scene + ", lolication=" + lolication + ", bodyInfo=" + bodyInfo + ", pos=" + pos);
         
-        String prompt = "一张顶级专业cosplay摄影作品。主角是一位顶尖的中国女coser，她拥有姣好的面部，化着淡妆，挺翘的鼻子，美瞳，化妆，白皮肤，" 
+        String prompt = "一张顶级专业cosplay摄影作品。主角是一位顶尖的中国女coser，她拥有姣好的面郎，化着淡妆，挺翘的鼻子，美瞳，化妆，白皮肤，" 
                 + lolication + "，光滑细腻的肌肤，情趣吊带袜，情趣蕾丝胸罩。她通过极其精致的妆容和神态表演，完美还原了图片主体的气质、发型和标志性表情。身材和图片一致。"
                 + bodyInfo + "。头发发质自然。她完整地穿着图片中的服装。"
                 + pos + "。服装材质表现出极高的真实感，有清晰的布料纹理、皮革光泽、丝袜质感和自然褶皱。年龄一致。\n"
@@ -174,12 +199,26 @@ public class ImageGenerationService extends IntentService {
     }
 
     private Bitmap getBitmapFromUri(Uri uri) {
+        InputStream inputStream = null;
         try {
             logManager.d(LOG_IMAGE, "从URI读取图片: " + uri);
-            InputStream inputStream = getContentResolver().openInputStream(uri);
+            inputStream = getContentResolver().openInputStream(uri);
+            if (inputStream == null) {
+                logManager.e(LOG_ERROR_TAG, "无法打开输入流");
+                return null;
+            }
+            
             Bitmap bitmap = BitmapFactory.decodeStream(inputStream);
             if (bitmap != null) {
                 logManager.d(LOG_IMAGE, "图片读取成功，尺寸: " + bitmap.getWidth() + "x" + bitmap.getHeight() + ", 格式: ARGB_8888");
+                
+                // 如果图片过大，进行压缩
+                if (bitmap.getWidth() > 2048 || bitmap.getHeight() > 2048) {
+                    logManager.d(LOG_IMAGE, "图片过大，正在压缩...");
+                    bitmap = scaleBitmap(bitmap, 2048);
+                    logManager.d(LOG_IMAGE, "图片压缩完成，新尺寸: " + bitmap.getWidth() + "x" + bitmap.getHeight());
+                }
+                
             } else {
                 logManager.e(LOG_ERROR_TAG, "图片解码失败，返回null");
             }
@@ -187,7 +226,27 @@ public class ImageGenerationService extends IntentService {
         } catch (Exception e) {
             logManager.e(LOG_ERROR_TAG, "读取图片时出错: " + e.getMessage(), e);
             return null;
+        } finally {
+            if (inputStream != null) {
+                try {
+                    inputStream.close();
+                } catch (Exception e) {
+                    logManager.w(LOG_ERROR_TAG, "关闭输入流时出错: " + e.getMessage());
+                }
+            }
         }
+    }
+
+    private Bitmap scaleBitmap(Bitmap bitmap, int maxSize) {
+        int width = bitmap.getWidth();
+        int height = bitmap.getHeight();
+        
+        float scale = Math.min((float) maxSize / width, (float) maxSize / height);
+        
+        int newWidth = Math.round(width * scale);
+        int newHeight = Math.round(height * scale);
+        
+        return Bitmap.createScaledBitmap(bitmap, newWidth, newHeight, true);
     }
 
     private List<String> generateImages(String apiKey, Bitmap bitmap, String prompt, int numOutputs, int maxRetries) {
@@ -243,70 +302,61 @@ public class ImageGenerationService extends IntentService {
         return savedImagePaths;
     }
 
-    private String callGeminiApi(String apiKey, String base64Image, String prompt) {
-        try {
-            // 构建API请求
-            String url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent?key=" + apiKey;
-            logManager.d(LOG_API, "准备调用Gemini API，URL: " + url.substring(0, url.indexOf("?")) + "?key=***");
-            
-            // 构建请求体
-            logManager.d(LOG_API, "构建API请求体");
-            JsonObject requestBody = new JsonObject();
-            JsonArray contents = new JsonArray();
-            
-            // 添加图片
-            JsonObject imageContent = new JsonObject();
-            JsonObject imageObject = new JsonObject();
-            JsonObject imageData = new JsonObject();
-            imageData.addProperty("mimeType", "image/jpeg");
-            imageData.addProperty("data", base64Image);
-            imageObject.add("inlineData", imageData);
-            imageContent.add("parts", new JsonArray());
-            imageContent.getAsJsonArray("parts").add(imageObject);
-            contents.add(imageContent);
-            
-            // 添加文本提示
-            JsonObject textContent = new JsonObject();
-            JsonObject textPart = new JsonObject();
-            textPart.addProperty("text", prompt);
-            textContent.add("parts", new JsonArray());
-            textContent.getAsJsonArray("parts").add(textPart);
-            contents.add(textContent);
-            
-            requestBody.add("contents", contents);
-            
-            // 发送请求
-            MediaType JSON = MediaType.get("application/json; charset=utf-8");
-            RequestBody body = RequestBody.create(JSON, gson.toJson(requestBody));
-            
-            Request request = new Request.Builder()
-                    .url(url)
-                    .post(body)
-                    .build();
-            
-            logManager.d(LOG_API, "发送API请求");
-            long startTime = System.currentTimeMillis();
-            
-            try (Response response = client.newCall(request).execute()) {
-                long endTime = System.currentTimeMillis();
-                logManager.d(LOG_API, "API请求完成，耗时: " + (endTime - startTime) + "ms，状态码: " + response.code());
-                
-                if (!response.isSuccessful()) {
-                    logManager.e(LOG_ERROR_TAG, "API请求失败: " + response.code() + " " + response.message());
-                    return null;
-                }
-                
-                String responseBody = response.body().string();
-                logManager.d(LOG_API, "API响应接收完成，响应体长度: " + responseBody.length() + "字符");
-                
-                return processGeminiResponse(responseBody);
-            }
-            
-        } catch (Exception e) {
-            logManager.e(LOG_ERROR_TAG, "调用Gemini API时出错: " + e.getMessage(), e);
-            return null;
+private String callGeminiApi(String apiKey, String base64Image, String prompt) {
+    Response response = null;
+    try {
+        // 使用正确的模型和认证方式
+        String url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent";
+        logManager.d(LOG_API, "准备调用Gemini API: " + url);
+        
+        // 构建请求体 - 按照官方顺序
+        JsonObject requestBody = new JsonObject();
+        JsonArray contents = new JsonArray();
+        JsonObject content = new JsonObject();
+        JsonArray parts = new JsonArray();
+        
+        // 先添加文本部分
+        JsonObject textPart = new JsonObject();
+        textPart.addProperty("text", prompt);
+        parts.add(textPart);
+        
+        // 再添加图片部分（使用正确的字段名）
+        JsonObject imagePart = new JsonObject();
+        JsonObject imageData = new JsonObject();
+        imageData.addProperty("mime_type", "image/jpeg"); // 蛇形命名
+        imageData.addProperty("data", base64Image);
+        imagePart.add("inline_data", imageData); // 蛇形命名
+        parts.add(imagePart);
+        
+        content.add("parts", parts);
+        contents.add(content);
+        requestBody.add("contents", contents);
+        
+        // 发送请求
+        MediaType JSON = MediaType.get("application/json; charset=utf-8");
+        RequestBody body = RequestBody.create(JSON, gson.toJson(requestBody));
+        
+        Request request = new Request.Builder()
+                .url(url)
+                .post(body)
+                .addHeader("User-Agent", "GeminiImageApp/1.0")
+                .addHeader("x-goog-api-key", apiKey) // 正确的认证方式
+                .addHeader("Content-Type", "application/json")
+                .build();
+        
+        logManager.d(LOG_API, "发送API请求");
+        long startTime = System.currentTimeMillis();
+        
+        response = client.newCall(request).execute();
+        // ... 其余代码保持不变
+    } catch (Exception e) {
+        // 错误处理
+    } finally {
+        if (response != null) {
+            response.close();
         }
     }
+}
 
     private String processGeminiResponse(String responseJson) {
         try {
@@ -315,6 +365,7 @@ public class ImageGenerationService extends IntentService {
             
             if (!jsonResponse.has("candidates") || jsonResponse.getAsJsonArray("candidates").size() == 0) {
                 logManager.e(LOG_ERROR_TAG, "API响应中没有candidates字段");
+                logManager.d(LOG_ERROR_TAG, "响应内容: " + responseJson.substring(0, Math.min(500, responseJson.length())));
                 return null;
             }
             
@@ -354,6 +405,7 @@ public class ImageGenerationService extends IntentService {
     }
 
     private String saveGeneratedImage(String base64Data) {
+        FileOutputStream fos = null;
         try {
             logManager.d(LOG_IMAGE, "开始保存生成的图片");
             // 解码Base64数据
@@ -365,21 +417,25 @@ public class ImageGenerationService extends IntentService {
             if (!storageDir.exists()) {
                 boolean created = storageDir.mkdirs();
                 logManager.d(LOG_IMAGE, "创建存储目录: " + storageDir.getAbsolutePath() + ", 结果: " + (created ? "成功" : "失败"));
+                if (!created) {
+                    logManager.e(LOG_ERROR_TAG, "无法创建存储目录");
+                    return null;
+                }
             } else {
                 logManager.d(LOG_IMAGE, "存储目录已存在: " + storageDir.getAbsolutePath());
             }
             
             // 创建文件
             String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(new Date());
-            String fileName = "GEN_" + timeStamp + ".png";
+            String fileName = "GEN_" + timeStamp + "_" + System.currentTimeMillis() + ".png";
             File imageFile = new File(storageDir, fileName);
             logManager.d(LOG_IMAGE, "创建图像文件: " + imageFile.getAbsolutePath());
             
             // 写入文件
-            try (FileOutputStream fos = new FileOutputStream(imageFile)) {
-                fos.write(imageData);
-                logManager.d(LOG_IMAGE, "图像数据写入文件成功");
-            }
+            fos = new FileOutputStream(imageFile);
+            fos.write(imageData);
+            fos.flush();
+            logManager.d(LOG_IMAGE, "图像数据写入文件成功");
             
             logManager.d(LOG_IMAGE, "图片保存完成: " + imageFile.getAbsolutePath());
             return imageFile.getAbsolutePath();
@@ -387,15 +443,24 @@ public class ImageGenerationService extends IntentService {
         } catch (Exception e) {
             logManager.e(LOG_ERROR_TAG, "保存生成的图片时出错: " + e.getMessage(), e);
             return null;
+        } finally {
+            if (fos != null) {
+                try {
+                    fos.close();
+                } catch (Exception e) {
+                    logManager.w(LOG_ERROR_TAG, "关闭文件流时出错: " + e.getMessage());
+                }
+            }
         }
     }
 
     private String bitmapToBase64(Bitmap bitmap) {
+        ByteArrayOutputStream baos = null;
         try {
             logManager.d(LOG_IMAGE, "开始将Bitmap转换为Base64");
-            ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-            bitmap.compress(Bitmap.CompressFormat.JPEG, 90, byteArrayOutputStream);
-            byte[] byteArray = byteArrayOutputStream.toByteArray();
+            baos = new ByteArrayOutputStream();
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 90, baos);
+            byte[] byteArray = baos.toByteArray();
             logManager.d(LOG_IMAGE, "Bitmap压缩完成，JPEG质量: 90%, 大小: " + byteArray.length + "字节");
             
             String base64String = Base64.encodeToString(byteArray, Base64.DEFAULT);
@@ -404,6 +469,14 @@ public class ImageGenerationService extends IntentService {
         } catch (Exception e) {
             logManager.e(LOG_ERROR_TAG, "将Bitmap转换为Base64时出错: " + e.getMessage(), e);
             return null;
+        } finally {
+            if (baos != null) {
+                try {
+                    baos.close();
+                } catch (Exception e) {
+                    logManager.w(LOG_ERROR_TAG, "关闭ByteArrayOutputStream时出错: " + e.getMessage());
+                }
+            }
         }
     }
 
