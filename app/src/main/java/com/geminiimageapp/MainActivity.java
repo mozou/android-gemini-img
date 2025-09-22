@@ -9,6 +9,7 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.provider.MediaStore;
 import android.text.TextUtils;
+import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
@@ -36,12 +37,18 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity implements LogManager.LogListener {
 
+    private static final String TAG = "GeminiImageGen";
+    
     private TextInputEditText apiKeyInput, sceneInput, numOutputsInput, maxRetriesInput, lolicationInput, posInput;
     private ImageView selectedImageView;
     private Button selectImageButton, takePhotoButton, generateButton;
     private ProgressBar progressBar;
+    private LogView logView;
+    
+    // 日志管理器
+    private LogManager logManager;
 
     private Uri selectedImageUri;
     private String currentPhotoPath;
@@ -71,6 +78,13 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         sharedPreferences = getSharedPreferences("GeminiImageApp", MODE_PRIVATE);
+        
+        // 初始化日志管理器
+        logManager = LogManager.getInstance();
+        logManager.addListener(this);
+        
+        // 添加初始日志
+        logManager.i(LogManager.LOG_INIT, "应用启动");
 
         initViews();
         loadSavedValues();
@@ -89,6 +103,9 @@ public class MainActivity extends AppCompatActivity {
         takePhotoButton = findViewById(R.id.takePhotoButton);
         generateButton = findViewById(R.id.generateButton);
         progressBar = findViewById(R.id.progressBar);
+        logView = findViewById(R.id.logView);
+        
+        logManager.d(LogManager.LOG_INIT, "界面初始化完成");
     }
 
     private void loadSavedValues() {
@@ -207,6 +224,8 @@ public class MainActivity extends AppCompatActivity {
                 .load(uri)
                 .centerCrop()
                 .into(selectedImageView);
+        
+        logManager.d(LogManager.LOG_IMAGE, "图片加载成功: " + uri);
     }
 
     private void validateAndGenerate() {
@@ -217,6 +236,8 @@ public class MainActivity extends AppCompatActivity {
         String lolication = lolicationInput.getText().toString().trim();
         String pos = posInput.getText().toString().trim();
 
+        logManager.d(LogManager.LOG_PARAMS, "开始验证参数");
+        
         // 保存输入值
         SharedPreferences.Editor editor = sharedPreferences.edit();
         editor.putString("apiKey", apiKey);
@@ -226,14 +247,18 @@ public class MainActivity extends AppCompatActivity {
         editor.putString("lolication", lolication);
         editor.putString("pos", pos);
         editor.apply();
+        
+        logManager.d(LogManager.LOG_PARAMS, "参数已保存到SharedPreferences");
 
         // 验证输入
         if (TextUtils.isEmpty(apiKey)) {
+            logManager.w(LogManager.LOG_ERROR, "API密钥为空");
             Toast.makeText(this, R.string.no_api_key, Toast.LENGTH_SHORT).show();
             return;
         }
 
         if (selectedImageUri == null) {
+            logManager.w(LogManager.LOG_ERROR, "未选择图片");
             Toast.makeText(this, R.string.no_image_selected, Toast.LENGTH_SHORT).show();
             return;
         }
@@ -241,6 +266,7 @@ public class MainActivity extends AppCompatActivity {
         // 设置默认值
         if (TextUtils.isEmpty(scene)) {
             scene = "漫展";
+            logManager.d(LogManager.LOG_PARAMS, "场景使用默认值: 漫展");
         }
 
         int numOutputs = 1;
@@ -250,6 +276,7 @@ public class MainActivity extends AppCompatActivity {
             }
         } catch (NumberFormatException e) {
             numOutputs = 1;
+            logManager.w(LogManager.LOG_PARAMS, "生成数量解析错误，使用默认值: 1");
         }
 
         int maxRetries = 3;
@@ -259,15 +286,30 @@ public class MainActivity extends AppCompatActivity {
             }
         } catch (NumberFormatException e) {
             maxRetries = 3;
+            logManager.w(LogManager.LOG_PARAMS, "最大重试次数解析错误，使用默认值: 3");
         }
 
         if (TextUtils.isEmpty(pos)) {
             pos = "，并保持原有姿态";
+            logManager.d(LogManager.LOG_PARAMS, "姿态使用默认值: ，并保持原有姿态");
         }
 
         // 显示进度条
         progressBar.setVisibility(View.VISIBLE);
         generateButton.setEnabled(false);
+        
+        logManager.i(LogManager.LOG_PARAMS, "参数验证通过，准备启动服务");
+        logManager.d(LogManager.LOG_PARAMS, "参数详情：" +
+                "
+ - 场景: " + scene +
+                "
+ - 生成数量: " + numOutputs +
+                "
+ - 最大重试次数: " + maxRetries +
+                "
+ - 胸部描述: " + (lolication.isEmpty() ? "无" : lolication) +
+                "
+ - 姿态描述: " + pos);
 
         // 启动图像生成服务
         Intent serviceIntent = new Intent(this, ImageGenerationService.class);
@@ -280,6 +322,7 @@ public class MainActivity extends AppCompatActivity {
         serviceIntent.putExtra("pos", pos);
         
         startService(serviceIntent);
+        logManager.i(LogManager.LOG_INIT, "图像生成服务已启动");
     }
 
     @Override
@@ -288,5 +331,24 @@ public class MainActivity extends AppCompatActivity {
         // 重置UI状态
         progressBar.setVisibility(View.GONE);
         generateButton.setEnabled(true);
+        logManager.d(LogManager.LOG_INIT, "Activity恢复，UI状态已重置");
+    }
+    
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        // 移除日志监听器
+        logManager.removeListener(this);
+        logManager.d(LogManager.LOG_INIT, "Activity销毁");
+    }
+    
+    @Override
+    public void onNewLog(LogManager.LogEntry entry) {
+        // 这个方法会在LogView中自动处理，这里不需要额外操作
+    }
+    
+    @Override
+    public void onClearLogs() {
+        // 这个方法会在LogView中自动处理，这里不需要额外操作
     }
 }
