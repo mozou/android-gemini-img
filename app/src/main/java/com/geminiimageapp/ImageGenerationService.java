@@ -306,7 +306,7 @@ private String callGeminiApi(String apiKey, String base64Image, String prompt) {
     Response response = null;
     try {
         // 正确的 endpoint
-        String url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent?key=" + apiKey;
+        String url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent";
         logManager.d(LOG_API, "准备调用Gemini API: " + url);
 
         // 构建请求体
@@ -341,8 +341,9 @@ private String callGeminiApi(String apiKey, String base64Image, String prompt) {
         Request request = new Request.Builder()
                 .url(url)
                 .post(body)
-                .addHeader("User-Agent", "GeminiImageApp/1.0")
+                .addHeader("x-goog-api-key", apiKey) // 使用正确的Header
                 .addHeader("Content-Type", "application/json")
+                .addHeader("User-Agent", "GeminiImageApp/1.0")
                 .build();
 
         logManager.d(LOG_API, "发送API请求");
@@ -402,8 +403,8 @@ private String callGeminiApi(String apiKey, String base64Image, String prompt) {
             logManager.d(LOG_PROCESS, "查找API响应中的图像数据");
             for (JsonElement partElement : content.getAsJsonArray("parts")) {
                 JsonObject part = partElement.getAsJsonObject();
-                if (part.has("inlineData")) {
-                    JsonObject inlineData = part.getAsJsonObject("inlineData");
+                if (part.has("inline_data")) {
+                    JsonObject inlineData = part.getAsJsonObject("inline_data");
                     String base64Data = inlineData.get("data").getAsString();
                     logManager.d(LOG_PROCESS, "找到图像数据，Base64长度: " + base64Data.length() + "字符");
                     
