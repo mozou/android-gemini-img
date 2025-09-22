@@ -60,12 +60,7 @@ public class ImageGenerationService extends IntentService {
     private final Executor executor = Executors.newSingleThreadExecutor();
     
     // 增加超时设置的OkHttp客户端
-    private final OkHttpClient client = new OkHttpClient.Builder()
-            .connectTimeout(30, TimeUnit.SECONDS)
-            .readTimeout(60, TimeUnit.SECONDS)
-            .writeTimeout(60, TimeUnit.SECONDS)
-            .build();
-            
+    private final OkHttpClient client;
     private final Gson gson = new Gson();
 
     public ImageGenerationService() {
