@@ -6,21 +6,24 @@
     <!-- 基本权限 -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-    
+
     <!-- 存储权限 -->
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" 
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
                      android:maxSdkVersion="32" />
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" 
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
                      android:maxSdkVersion="28" />
-    
+
     <!-- Android 13+ 照片和媒体权限 -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
-    
+
     <!-- 相机权限 -->
     <uses-permission android:name="android.permission.CAMERA" />
-    
+
     <!-- 通知权限 -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    
+    <!-- 前台服务权限 (必须添加) -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
 
     <application
         android:allowBackup="true"
@@ -29,7 +32,7 @@
         android:theme="@style/AppTheme"
         android:requestLegacyExternalStorage="true"
         android:usesCleartextTraffic="true">
-        
+
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -39,11 +42,25 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        
+
         <activity
             android:name=".ResultActivity"
             android:exported="false"
             android:screenOrientation="portrait" />
+
+        <!-- 
+        ====================================================================
+        ↓↓↓ 添加缺失的服务声明 ↓↓↓
+        ====================================================================
+        -->
+        <service
+            android:name=".ImageGenerationService"
+            android:exported="false" />
+        <!-- 
+        ====================================================================
+        ↑↑↑ 添加结束 ↑↑↑
+        ====================================================================
+        -->
             
         <provider
             android:name="androidx.core.content.FileProvider"
@@ -54,6 +71,6 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
-            
+
     </application>
 </manifest>
