@@ -348,14 +348,29 @@ private String callGeminiApi(String apiKey, String base64Image, String prompt) {
         long startTime = System.currentTimeMillis();
         
         response = client.newCall(request).execute();
-        // ... 其余代码保持不变
+        long endTime = System.currentTimeMillis();
+        logManager.d(LOG_API, "API请求完成，耗时: " + (endTime - startTime) + "ms，状态码: " + response.code());
+        
+        if (!response.isSuccessful()) {
+            String errorBody = response.body() != null ? response.body().string() : "No error body";
+            logManager.e(LOG_ERROR_TAG, "API请求失败: " + response.code() + " " + response.message() + ", 错误详情: " + errorBody);
+            return null; // 这里需要返回
+        }
+        
+        String responseBody = response.body().string();
+        logManager.d(LOG_API, "API响应接收完成，响应体长度: " + responseBody.length() + "字符");
+        
+        return processGeminiResponse(responseBody);
+        
     } catch (Exception e) {
-        // 错误处理
+        logManager.e(LOG_ERROR_TAG, "调用Gemini API时出错: " + e.getMessage(), e);
+        return null; // 这里需要返回
     } finally {
         if (response != null) {
             response.close();
         }
     }
+    // 这里不需要额外的 return，因为所有路径都已经覆盖
 }
 
     private String processGeminiResponse(String responseJson) {
