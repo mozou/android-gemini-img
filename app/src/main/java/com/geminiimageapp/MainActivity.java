@@ -300,16 +300,12 @@ public class MainActivity extends AppCompatActivity implements LogManager.LogLis
         
         logManager.i(LogManager.LOG_PARAMS, "参数验证通过，准备启动服务");
         logManager.d(LogManager.LOG_PARAMS, "参数详情：" +
-                "
- - 场景: " + scene +
-                "
- - 生成数量: " + numOutputs +
-                "
- - 最大重试次数: " + maxRetries +
-                "
- - 胸部描述: " + (lolication.isEmpty() ? "无" : lolication) +
-                "
- - 姿态描述: " + pos);
+            "\n - 场景: " + scene +
+            "\n - 生成数量: " + numOutputs +
+            "\n - 最大重试次数: " + maxRetries +
+            "\n - 胸部描述: " + (lolication.isEmpty() ? "无" : lolication) +
+            "\n - 姿态描述: " + pos);
+
 
         // 启动图像生成服务
         Intent serviceIntent = new Intent(this, ImageGenerationService.class);
