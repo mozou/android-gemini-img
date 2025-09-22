@@ -219,8 +219,8 @@ public class ImageGenerationService extends IntentService {
             requestBody.add("contents", contents);
             
             // 发送请求
-            RequestBody body = RequestBody.create(
-                    MediaType.parse("application/json"), gson.toJson(requestBody));
+            MediaType JSON = MediaType.get("application/json; charset=utf-8");
+            RequestBody body = RequestBody.create(JSON, gson.toJson(requestBody));
             
             Request request = new Request.Builder()
                     .url(url)
