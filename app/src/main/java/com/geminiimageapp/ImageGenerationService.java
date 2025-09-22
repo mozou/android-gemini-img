@@ -1,5 +1,6 @@
 package com.geminiimageapp;
 
+import okhttp3.logging.HttpLoggingInterceptor;
 import android.app.IntentService;
 import android.app.Notification;
 import android.app.NotificationChannel;
@@ -69,6 +70,27 @@ public class ImageGenerationService extends IntentService {
 
     public ImageGenerationService() {
         super("ImageGenerationService");
+        logManager.d(LOG_INIT, "服务创建");
+                // 创建一个日志拦截器
+        HttpLoggingInterceptor loggingInterceptor = new HttpLoggingInterceptor(new HttpLoggingInterceptor.Logger() {
+            @Override
+            public void log(String message) {
+                // 将OkHttp的日志输出到您的LogManager，方便在界面上查看
+                logManager.d("OkHttp", message);
+            }
+        });
+        // 设置日志级别为 BODY，打印所有信息
+        loggingInterceptor.setLevel(HttpLoggingInterceptor.Level.BODY);
+
+        // 使用新的配置来构建 OkHttpClient 实例
+        this.client = new OkHttpClient.Builder()
+                .connectTimeout(30, TimeUnit.SECONDS)
+                .readTimeout(60, TimeUnit.SECONDS)
+                .writeTimeout(60, TimeUnit.SECONDS)
+                .addInterceptor(loggingInterceptor) // <-- 将拦截器添加进去
+                .build();
+        // --- 修改结束 ---
+
         logManager.d(LOG_INIT, "服务创建");
     }
 
