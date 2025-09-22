@@ -1,58 +1,64 @@
-plugins {
-    id 'com.android.application'
-}
+apply plugin: 'com.android.application'
 
 android {
-    namespace "com.example.geminiimageapp"
-    compileSdkVersion 34
+    compileSdkVersion 33
+    buildToolsVersion "30.0.3"
+
     defaultConfig {
-        applicationId "com.example.geminiimageapp"
+        applicationId "com.geminiimageapp"
         minSdkVersion 24
-        targetSdkVersion 34
+        targetSdkVersion 33
         versionCode 1
         versionName "1.0"
-        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
+
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
+
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_17
-        targetCompatibility JavaVersion.VERSION_17
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+    
+    packagingOptions {
+        exclude 'META-INF/DEPENDENCIES'
+        exclude 'META-INF/LICENSE'
+        exclude 'META-INF/LICENSE.txt'
+        exclude 'META-INF/license.txt'
+        exclude 'META-INF/NOTICE'
+        exclude 'META-INF/NOTICE.txt'
+        exclude 'META-INF/notice.txt'
+        exclude 'META-INF/ASL2.0'
     }
 }
 
 dependencies {
-    configurations.all {
-    resolutionStrategy {
-        force 'com.fasterxml.jackson.core:jackson-core:2.15.2'
-        force 'com.fasterxml.jackson.core:jackson-databind:2.15.2'
-        force 'com.fasterxml.jackson.core:jackson-annotations:2.15.2'
-    }
-}
-    implementation "com.fasterxml.jackson.core:jackson-core:2.15.2"  // <= Java 17 编译
-    implementation "com.fasterxml.jackson.core:jackson-databind:2.15.2"
-    implementation "com.google.genai:google-genai:1.0.0"
-    implementation "com.google.guava:guava:32.1.2-android"
     implementation 'androidx.appcompat:appcompat:1.6.1'
-    implementation 'com.google.android.material:material:1.10.0'
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
+    implementation 'com.google.android.material:material:1.9.0'
+    
+    // 网络库
+    implementation 'com.squareup.okhttp3:okhttp:4.10.0'
+    
+    // JSON解析
+    implementation 'com.google.code.gson:gson:2.10'
+    
+    // 图片加载和处理
+    implementation 'com.github.bumptech.glide:glide:4.15.1'
+    annotationProcessor 'com.github.bumptech.glide:compiler:4.15.1'
     
     // Google AI SDK for Gemini
-    implementation 'com.google.ai.client.generativeai:generativeai:0.2.0'
+    implementation 'com.google.ai.client.generativeai:generativeai:0.1.1'
     
-    // Coroutines for async operations
-    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3'
+    // 协程支持
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.6.4'
     
-    // Glide for image loading
-    implementation 'com.github.bumptech.glide:glide:4.16.0'
-    
-    // Lifecycle components
-    implementation 'androidx.lifecycle:lifecycle-viewmodel:2.6.2'
-    implementation 'androidx.lifecycle:lifecycle-livedata:2.6.2'
+    // 权限处理
+    implementation 'com.karumi:dexter:6.2.3'
     
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.1.5'

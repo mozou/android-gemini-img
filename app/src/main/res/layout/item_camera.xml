@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_margin="4dp"
+    app:cardCornerRadius="8dp"
+    app:cardElevation="2dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <!-- 摄像头基本信息区域 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:padding="12dp"
+            android:background="?android:attr/selectableItemBackground">
+
+            <ImageView
+                android:id="@+id/iv_camera_icon"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_marginEnd="12dp"
+                android:src="@drawable/ic_camera_network"
+                android:scaleType="centerInside" />
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/tv_camera_name"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="网络摄像头"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:textColor="@android:color/black" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginTop="4dp">
+
+                    <TextView
+                        android:id="@+id/tv_camera_type"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="网络摄像头"
+                        android:textSize="12sp"
+                        android:background="@drawable/bg_tag_type"
+                        android:paddingStart="6dp"
+                        android:paddingEnd="6dp"
+                        android:paddingTop="2dp"
+                        android:paddingBottom="2dp"
+                        android:layout_marginEnd="8dp"
+                        android:textColor="@android:color/white" />
+
+                    <TextView
+                        android:id="@+id/tv_camera_status"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="可访问"
+                        android:textSize="12sp"
+                        android:background="@drawable/bg_tag_status"
+                        android:paddingStart="6dp"
+                        android:paddingEnd="6dp"
+                        android:paddingTop="2dp"
+                        android:paddingBottom="2dp"
+                        android:textColor="@android:color/white" />
+
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/tv_camera_id"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="IP: 192.168.1.100:80"
+                    android:textSize="12sp"
+                    android:textColor="@android:color/darker_gray"
+                    android:layout_marginTop="4dp" />
+
+            </LinearLayout>
+
+            <Button
+                android:id="@+id/btn_exploit"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:text="获取权限"
+                android:textSize="12sp"
+                android:background="@drawable/bg_button_danger"
+                android:textColor="@android:color/white"
+                android:layout_gravity="center_vertical"
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp" />
+
+        </LinearLayout>
+
+        <!-- 摄像头详细信息区域 -->
+        <LinearLayout
+            android:id="@+id/layout_camera_details"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="12dp"
+            android:background="#F5F5F5"
+            android:visibility="gone">
+
+            <TextView
+                android:id="@+id/tv_camera_details"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="摄像头详细信息"
+                android:textSize="14sp"
+                android:textColor="@android:color/darker_gray" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="8dp">
+
+                <Button
+                    android:id="@+id/btn_view"
+                    android:layout_width="0dp"
+                    android:layout_height="36dp"
+                    android:layout_weight="1"
+                    android:text="查看视频流"
+                    android:textSize="12sp"
+                    android:background="@drawable/bg_button_primary"
+                    android:textColor="@android:color/white"
+                    android:layout_marginEnd="4dp" />
+
+                <Button
+                    android:id="@+id/btn_control"
+                    android:layout_width="0dp"
+                    android:layout_height="36dp"
+                    android:layout_weight="1"
+                    android:text="控制摄像头"
+                    android:textSize="12sp"
+                    android:background="@drawable/bg_button_secondary"
+                    android:textColor="@android:color/white"
+                    android:layout_marginStart="4dp" />
+
+            </LinearLayout>
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+</androidx.cardview.widget.CardView>
