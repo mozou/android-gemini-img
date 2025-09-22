@@ -305,73 +305,75 @@ public class ImageGenerationService extends IntentService {
 private String callGeminiApi(String apiKey, String base64Image, String prompt) {
     Response response = null;
     try {
-        // 使用正确的模型和认证方式
-        String url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent";
+        // 正确的 endpoint
+        String url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent?key=" + apiKey;
         logManager.d(LOG_API, "准备调用Gemini API: " + url);
-        
-        // 构建请求体 - 按照官方顺序
+
+        // 构建请求体
         JsonObject requestBody = new JsonObject();
         JsonArray contents = new JsonArray();
         JsonObject content = new JsonObject();
         JsonArray parts = new JsonArray();
-        
-        // 先添加文本部分
+
+        // 文本部分
         JsonObject textPart = new JsonObject();
         textPart.addProperty("text", prompt);
         parts.add(textPart);
-        
-        // 再添加图片部分（使用正确的字段名）
+
+        // 图片部分
         JsonObject imagePart = new JsonObject();
         JsonObject imageData = new JsonObject();
-        imageData.addProperty("mime_type", "image/jpeg"); // 蛇形命名
+        imageData.addProperty("mime_type", "image/jpeg"); // 或 "image/png"，要和 base64 对应
         imageData.addProperty("data", base64Image);
-        imagePart.add("inline_data", imageData); // 蛇形命名
+        imagePart.add("inline_data", imageData); 
         parts.add(imagePart);
-        
+
+        // 封装 parts -> contents
         content.add("parts", parts);
         contents.add(content);
         requestBody.add("contents", contents);
-        
-        // 发送请求
+
+        // 请求体
         MediaType JSON = MediaType.get("application/json; charset=utf-8");
         RequestBody body = RequestBody.create(JSON, gson.toJson(requestBody));
-        
+
+        // 正确构建请求：注意这里 API key 是拼在 URL 上的
         Request request = new Request.Builder()
                 .url(url)
                 .post(body)
                 .addHeader("User-Agent", "GeminiImageApp/1.0")
-                .addHeader("x-goog-api-key", apiKey) // 正确的认证方式
                 .addHeader("Content-Type", "application/json")
                 .build();
-        
+
         logManager.d(LOG_API, "发送API请求");
         long startTime = System.currentTimeMillis();
-        
+
         response = client.newCall(request).execute();
+
         long endTime = System.currentTimeMillis();
         logManager.d(LOG_API, "API请求完成，耗时: " + (endTime - startTime) + "ms，状态码: " + response.code());
-        
+
         if (!response.isSuccessful()) {
             String errorBody = response.body() != null ? response.body().string() : "No error body";
             logManager.e(LOG_ERROR_TAG, "API请求失败: " + response.code() + " " + response.message() + ", 错误详情: " + errorBody);
-            return null; // 这里需要返回
+            return null;
         }
-        
+
         String responseBody = response.body().string();
         logManager.d(LOG_API, "API响应接收完成，响应体长度: " + responseBody.length() + "字符");
-        
+
         return processGeminiResponse(responseBody);
-        
+
     } catch (Exception e) {
         logManager.e(LOG_ERROR_TAG, "调用Gemini API时出错: " + e.getMessage(), e);
-        return null; // 这里需要返回
+        return null;
     } finally {
         if (response != null) {
             response.close();
         }
     }
-    // 这里不需要额外的 return，因为所有路径都已经覆盖
 }
+
 
     private String processGeminiResponse(String responseJson) {
         try {
