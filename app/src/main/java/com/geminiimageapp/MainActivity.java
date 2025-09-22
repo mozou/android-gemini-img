@@ -252,13 +252,13 @@ public class MainActivity extends AppCompatActivity implements LogManager.LogLis
 
         // 验证输入
         if (TextUtils.isEmpty(apiKey)) {
-            logManager.w(LogManager.LOG_ERROR, "API密钥为空");
+            logManager.w(LogManager.LOG_ERROR_TAG, "API密钥为空");
             Toast.makeText(this, R.string.no_api_key, Toast.LENGTH_SHORT).show();
             return;
         }
 
         if (selectedImageUri == null) {
-            logManager.w(LogManager.LOG_ERROR, "未选择图片");
+            logManager.w(LogManager.LOG_ERROR_TAG, "未选择图片");
             Toast.makeText(this, R.string.no_image_selected, Toast.LENGTH_SHORT).show();
             return;
         }

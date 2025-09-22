@@ -36,7 +36,7 @@ public class LogManager {
     public static final String LOG_API = "【API调用】";
     public static final String LOG_PROCESS = "【响应处理】";
     public static final String LOG_IMAGE = "【图片处理】";
-    public static final String LOG_ERROR = "【错误处理】";
+    public static final String LOG_ERROR_TAG = "【错误处理】";
     
     // 最大日志条数
     private static final int MAX_LOG_ENTRIES = 1000;

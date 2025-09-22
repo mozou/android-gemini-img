@@ -77,7 +77,7 @@ public class ImageGenerationService extends IntentService {
     protected void onHandleIntent(@Nullable Intent intent) {
         logManager.d(LOG_INIT, "开始处理任务");
         if (intent == null) {
-            logManager.e(LOG_ERROR, "Intent为空，无法处理任务");
+            logManager.e(LOG_ERROR_TAG, "Intent为空，无法处理任务");
             return;
         }
 
@@ -110,7 +110,7 @@ public class ImageGenerationService extends IntentService {
             // 读取图片
             Bitmap bitmap = getBitmapFromUri(imageUri);
             if (bitmap == null) {
-                logManager.e(LOG_ERROR, "无法读取图片: " + imageUriStr);
+                logManager.e(LOG_ERROR_TAG, "无法读取图片: " + imageUriStr);
                 showToast("无法读取图片");
                 return;
             }
@@ -129,7 +129,7 @@ public class ImageGenerationService extends IntentService {
             List<String> generatedImagePaths = generateImages(apiKey, bitmap, prompt, numOutputs, maxRetries);
             
             if (generatedImagePaths.isEmpty()) {
-                logManager.e(LOG_ERROR, "没有成功生成任何图片");
+                logManager.e(LOG_ERROR_TAG, "没有成功生成任何图片");
                 showToast(getString(R.string.generation_failed));
                 return;
             }
@@ -152,7 +152,7 @@ public class ImageGenerationService extends IntentService {
             showToast(getString(R.string.generation_success));
             
         } catch (Exception e) {
-            logManager.e(LOG_ERROR, "生成图片时出错", e);
+            logManager.e(LOG_ERROR_TAG, "生成图片时出错", e);
             showToast("生成图片时出错: " + e.getMessage());
         }
     }
@@ -181,11 +181,11 @@ public class ImageGenerationService extends IntentService {
             if (bitmap != null) {
                 logManager.d(LOG_IMAGE, "图片读取成功，尺寸: " + bitmap.getWidth() + "x" + bitmap.getHeight() + ", 格式: ARGB_8888");
             } else {
-                logManager.e(LOG_ERROR, "图片解码失败，返回null");
+                logManager.e(LOG_ERROR_TAG, "图片解码失败，返回null");
             }
             return bitmap;
         } catch (Exception e) {
-            logManager.e(LOG_ERROR, "读取图片时出错: " + e.getMessage(), e);
+            logManager.e(LOG_ERROR_TAG, "读取图片时出错: " + e.getMessage(), e);
             return null;
         }
     }
@@ -197,7 +197,7 @@ public class ImageGenerationService extends IntentService {
         logManager.d(LOG_IMAGE, "开始将图片转换为Base64");
         String base64Image = bitmapToBase64(bitmap);
         if (base64Image == null) {
-            logManager.e(LOG_ERROR, "图片转换为Base64失败");
+            logManager.e(LOG_ERROR_TAG, "图片转换为Base64失败");
             return savedImagePaths;
         }
         logManager.d(LOG_IMAGE, "图片成功转换为Base64，长度: " + base64Image.length() + "字符");
@@ -223,19 +223,19 @@ public class ImageGenerationService extends IntentService {
                         Thread.sleep(2000);
                     }
                 } catch (Exception e) {
-                    logManager.e(LOG_ERROR, "第 " + (i + 1) + " 张图片，尝试 " + (attempt + 1) + " 出错: " + e.getMessage(), e);
+                    logManager.e(LOG_ERROR_TAG, "第 " + (i + 1) + " 张图片，尝试 " + (attempt + 1) + " 出错: " + e.getMessage(), e);
                     try {
                         // 等待2秒后重试
                         Thread.sleep(2000);
                     } catch (InterruptedException ie) {
                         Thread.currentThread().interrupt();
-                        logManager.w(LOG_ERROR, "线程中断");
+                        logManager.w(LOG_ERROR_TAG, "线程中断");
                     }
                 }
             }
             
             if (!success) {
-                logManager.e(LOG_ERROR, "第 " + (i + 1) + " 张图片在 " + maxRetries + " 次尝试后仍然失败");
+                logManager.e(LOG_ERROR_TAG, "第 " + (i + 1) + " 张图片在 " + maxRetries + " 次尝试后仍然失败");
             }
         }
         
@@ -292,7 +292,7 @@ public class ImageGenerationService extends IntentService {
                 logManager.d(LOG_API, "API请求完成，耗时: " + (endTime - startTime) + "ms，状态码: " + response.code());
                 
                 if (!response.isSuccessful()) {
-                    logManager.e(LOG_ERROR, "API请求失败: " + response.code() + " " + response.message());
+                    logManager.e(LOG_ERROR_TAG, "API请求失败: " + response.code() + " " + response.message());
                     return null;
                 }
                 
@@ -303,7 +303,7 @@ public class ImageGenerationService extends IntentService {
             }
             
         } catch (Exception e) {
-            logManager.e(LOG_ERROR, "调用Gemini API时出错: " + e.getMessage(), e);
+            logManager.e(LOG_ERROR_TAG, "调用Gemini API时出错: " + e.getMessage(), e);
             return null;
         }
     }
@@ -314,19 +314,19 @@ public class ImageGenerationService extends IntentService {
             JsonObject jsonResponse = gson.fromJson(responseJson, JsonObject.class);
             
             if (!jsonResponse.has("candidates") || jsonResponse.getAsJsonArray("candidates").size() == 0) {
-                logManager.e(LOG_ERROR, "API响应中没有candidates字段");
+                logManager.e(LOG_ERROR_TAG, "API响应中没有candidates字段");
                 return null;
             }
             
             JsonObject candidate = jsonResponse.getAsJsonArray("candidates").get(0).getAsJsonObject();
             if (!candidate.has("content")) {
-                logManager.e(LOG_ERROR, "API响应中candidate没有content字段");
+                logManager.e(LOG_ERROR_TAG, "API响应中candidate没有content字段");
                 return null;
             }
             
             JsonObject content = candidate.getAsJsonObject("content");
             if (!content.has("parts") || content.getAsJsonArray("parts").size() == 0) {
-                logManager.e(LOG_ERROR, "API响应中content没有parts字段或parts为空");
+                logManager.e(LOG_ERROR_TAG, "API响应中content没有parts字段或parts为空");
                 return null;
             }
             
@@ -344,11 +344,11 @@ public class ImageGenerationService extends IntentService {
                 }
             }
             
-            logManager.e(LOG_ERROR, "API响应中没有找到图像数据");
+            logManager.e(LOG_ERROR_TAG, "API响应中没有找到图像数据");
             return null;
             
         } catch (Exception e) {
-            logManager.e(LOG_ERROR, "处理API响应时出错: " + e.getMessage(), e);
+            logManager.e(LOG_ERROR_TAG, "处理API响应时出错: " + e.getMessage(), e);
             return null;
         }
     }
@@ -385,7 +385,7 @@ public class ImageGenerationService extends IntentService {
             return imageFile.getAbsolutePath();
             
         } catch (Exception e) {
-            logManager.e(LOG_ERROR, "保存生成的图片时出错: " + e.getMessage(), e);
+            logManager.e(LOG_ERROR_TAG, "保存生成的图片时出错: " + e.getMessage(), e);
             return null;
         }
     }
@@ -402,7 +402,7 @@ public class ImageGenerationService extends IntentService {
             logManager.d(LOG_IMAGE, "Base64编码完成，长度: " + base64String.length() + "字符");
             return base64String;
         } catch (Exception e) {
-            logManager.e(LOG_ERROR, "将Bitmap转换为Base64时出错: " + e.getMessage(), e);
+            logManager.e(LOG_ERROR_TAG, "将Bitmap转换为Base64时出错: " + e.getMessage(), e);
             return null;
         }
     }
