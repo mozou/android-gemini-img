@@ -404,8 +404,8 @@ private String callGeminiApi(String apiKey, String base64Image, String prompt) {
             logManager.d(LOG_PROCESS, "查找API响应中的图像数据");
             for (JsonElement partElement : content.getAsJsonArray("parts")) {
                 JsonObject part = partElement.getAsJsonObject();
-                if (part.has("inline_data")) {
-                    JsonObject inlineData = part.getAsJsonObject("inline_data");
+                if (part.has("inlineData")) {
+                    JsonObject inlineData = part.getAsJsonObject("inlineData");
                     String base64Data = inlineData.get("data").getAsString();
                     logManager.d(LOG_PROCESS, "找到图像数据，Base64长度: " + base64Data.length() + "字符");
                     
