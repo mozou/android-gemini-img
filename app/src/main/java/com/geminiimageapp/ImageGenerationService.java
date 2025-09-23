@@ -90,21 +90,80 @@ public class ImageGenerationService extends IntentService {
         logManager.d(LOG_INIT, "前台服务启动完成");
     }
     
-    /**
-     * 加载配置文件
-     */
-    private void loadConfig() {
+/**
+ * 加载配置文件
+ */
+private void loadConfig() {
+    boolean loadedFromExternal = false;
+    
+    // 首先尝试从外部存储加载配置文件
+    File externalConfigFile = new File(getExternalFilesDir(null), CONFIG_FILE);
+    if (externalConfigFile.exists()) {
         try {
-            logManager.d(LOG_INIT, "开始加载配置文件");
+            logManager.d(LOG_INIT, "尝试从外部存储加载配置文件: " + externalConfigFile.getAbsolutePath());
+            FileInputStream fis = new FileInputStream(externalConfigFile);
+            Reader reader = new InputStreamReader(fis);
+            config = gson.fromJson(reader, JsonObject.class);
+            fis.close();
+            loadedFromExternal = true;
+            logManager.d(LOG_INIT, "从外部存储成功加载配置文件");
+        } catch (Exception e) {
+            logManager.e(LOG_ERROR_TAG, "从外部存储加载配置文件失败", e);
+            // 如果从外部存储加载失败，会继续尝试从内部assets加载
+        }
+    }
+    
+    // 如果从外部存储加载失败，则从内部assets加载
+    if (!loadedFromExternal) {
+        try {
+            logManager.d(LOG_INIT, "从内部assets加载配置文件");
             InputStream is = getAssets().open(CONFIG_FILE);
             Reader reader = new InputStreamReader(is);
             config = gson.fromJson(reader, JsonObject.class);
-            logManager.d(LOG_INIT, "配置文件加载成功");
+            is.close();
+            logManager.d(LOG_INIT, "从内部assets成功加载配置文件");
+            
+            // 将内部配置文件复制到外部存储，方便用户修改
+            copyConfigToExternalStorage();
         } catch (IOException e) {
-            logManager.e(LOG_ERROR_TAG, "加载配置文件失败", e);
+            logManager.e(LOG_ERROR_TAG, "从内部assets加载配置文件失败", e);
             config = new JsonObject(); // 创建空配置，避免空指针异常
         }
     }
+}
+
+/**
+ * 将内部配置文件复制到外部存储
+ */
+private void copyConfigToExternalStorage() {
+    try {
+        File externalConfigFile = new File(getExternalFilesDir(null), CONFIG_FILE);
+        // 如果外部配置文件已存在，不覆盖
+        if (externalConfigFile.exists()) {
+            logManager.d(LOG_INIT, "外部配置文件已存在，不进行复制");
+            return;
+        }
+        
+        logManager.d(LOG_INIT, "将内部配置文件复制到外部存储: " + externalConfigFile.getAbsolutePath());
+        InputStream is = getAssets().open(CONFIG_FILE);
+        FileOutputStream fos = new FileOutputStream(externalConfigFile);
+        
+        byte[] buffer = new byte[1024];
+        int length;
+        while ((length = is.read(buffer)) > 0) {
+            fos.write(buffer, 0, length);
+        }
+        
+        fos.flush();
+        fos.close();
+        is.close();
+        
+        logManager.d(LOG_INIT, "配置文件成功复制到外部存储");
+    } catch (Exception e) {
+        logManager.e(LOG_ERROR_TAG, "复制配置文件到外部存储失败", e);
+    }
+}
+
     
     /**
      * 从配置文件获取字符串值
