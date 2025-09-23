@@ -262,38 +262,6 @@ private String buildPrompt(String promptTemplate, String scene, String lolicatio
     return prompt;
 }
 
-private String bitmapToBase64(Bitmap bitmap) {
-    ByteArrayOutputStream baos = null;
-    try {
-        logManager.d(LOG_IMAGE, "开始将Bitmap转换为Base64");
-        baos = new ByteArrayOutputStream();
-        
-        // 从配置文件获取JPEG质量
-        int jpegQuality = getConfigInt("image", "jpegQuality", 90);
-        
-        bitmap.compress(Bitmap.CompressFormat.JPEG, jpegQuality, baos);
-        byte[] byteArray = baos.toByteArray();
-        logManager.d(LOG_IMAGE, "Bitmap压缩完成，JPEG质量: " + jpegQuality + "%, 大小: " + byteArray.length + "字节");
-
-        // 【修正】使用 NO_WRAP 标志，确保Base64字符串是单行连续的
-        String base64String = Base64.encodeToString(byteArray, Base64.NO_WRAP);
-        
-        logManager.d(LOG_IMAGE, "Base64编码完成，长度: " + base64String.length() + "字符");
-        return base64String;
-    } catch (Exception e) {
-        logManager.e(LOG_ERROR_TAG, "将Bitmap转换为Base64时出错: " + e.getMessage(), e);
-        return null;
-    } finally {
-        if (baos != null) {
-            try {
-                baos.close();
-            } catch (Exception e) {
-                logManager.w(LOG_ERROR_TAG, "关闭ByteArrayOutputStream时出错: " + e.getMessage());
-            }
-        }
-    }
-}
-
 // 5. 修改后的getBitmapFromUri方法
 private Bitmap getBitmapFromUri(Uri uri) {
     InputStream inputStream = null;
