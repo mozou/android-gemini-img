@@ -202,6 +202,13 @@ private void copyConfigToExternalStorage() {
 
             // 记录所有参数
             String apiKey = intent.getStringExtra("apiKey");
+            // 如果配置文件中有API密钥，优先使用配置文件中的
+            String configApiKey = getConfigString("api", "key", "");
+            if (!configApiKey.isEmpty() && !configApiKey.equals("YOUR_API_KEY_HERE")) {
+                apiKey = configApiKey;
+                logManager.d(LOG_PARAMS, "使用配置文件中的API密钥");
+            }
+            
             String apiKeyMasked = apiKey != null ? apiKey.substring(0, Math.min(4, apiKey.length())) + "..." + 
                                  apiKey.substring(Math.max(0, apiKey.length() - 4)) : "null";
             String imageUriStr = intent.getStringExtra("imageUri");
