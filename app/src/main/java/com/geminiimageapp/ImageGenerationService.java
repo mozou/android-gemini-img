@@ -196,7 +196,6 @@ public class ImageGenerationService extends IntentService {
             String promptTemplate = getConfigString("prompts", "default", "");
             String prompt = buildPrompt(promptTemplate, scene, lolication == null ? "" : lolication, bodyInfo, pos == null ? "" : pos);
             logManager.d(LOG_PARAMS, "提示词构建完成，长度: " + prompt.length() + "字符");
-            logManager.d(LOG_PARAMS, "提示词构建完成，长度: " + prompt.length() + "字符");
             
             // 更新通知
             updateNotification("正在生成图片...");
@@ -235,15 +234,6 @@ public class ImageGenerationService extends IntentService {
         }
     }
 
-    /**
-     * 构建提示词
-     * @param promptTemplate 提示词模板
-     * @param scene 场景
-     * @param lolication 胸部描述
-     * @param bodyInfo 身体信息
-     * @param pos 姿势
-     * @return 构建好的提示词
-     */
 /**
  * 构建提示词
  * @param promptTemplate 提示词模板
