@@ -30,7 +30,10 @@ import com.google.gson.JsonObject;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.Reader;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -52,9 +55,13 @@ public class ImageGenerationService extends IntentService {
     private static final String TAG = "GeminiImageGen";
     private static final String CHANNEL_ID = "GeminiImageGeneration";
     private static final int NOTIFICATION_ID = 1;
+    private static final String CONFIG_FILE = "config.json";
     
     // 日志管理器
     private final LogManager logManager = LogManager.getInstance();
+    
+    // 配置信息
+    private JsonObject config;
 
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private final Executor executor = Executors.newSingleThreadExecutor();
@@ -79,7 +86,48 @@ public class ImageGenerationService extends IntentService {
         logManager.d(LOG_INIT, "onCreate()调用");
         createNotificationChannel();
         startForeground(NOTIFICATION_ID, createNotification("正在准备生成图片..."));
+        loadConfig();
         logManager.d(LOG_INIT, "前台服务启动完成");
+    }
+    
+    /**
+     * 加载配置文件
+     */
+    private void loadConfig() {
+        try {
+            logManager.d(LOG_INIT, "开始加载配置文件");
+            InputStream is = getAssets().open(CONFIG_FILE);
+            Reader reader = new InputStreamReader(is);
+            config = gson.fromJson(reader, JsonObject.class);
+            logManager.d(LOG_INIT, "配置文件加载成功");
+        } catch (IOException e) {
+            logManager.e(LOG_ERROR_TAG, "加载配置文件失败", e);
+            config = new JsonObject(); // 创建空配置，避免空指针异常
+        }
+    }
+    
+    /**
+     * 从配置文件获取字符串值
+     */
+    private String getConfigString(String section, String key, String defaultValue) {
+        try {
+            return config.getAsJsonObject(section).get(key).getAsString();
+        } catch (Exception e) {
+            logManager.w(LOG_ERROR_TAG, "获取配置项失败: " + section + "." + key + "，使用默认值: " + defaultValue);
+            return defaultValue;
+        }
+    }
+    
+    /**
+     * 从配置文件获取整数值
+     */
+    private int getConfigInt(String section, String key, int defaultValue) {
+        try {
+            return config.getAsJsonObject(section).get(key).getAsInt();
+        } catch (Exception e) {
+            logManager.w(LOG_ERROR_TAG, "获取配置项失败: " + section + "." + key + "，使用默认值: " + defaultValue);
+            return defaultValue;
+        }
     }
 
     @Override
@@ -142,8 +190,12 @@ public class ImageGenerationService extends IntentService {
             logManager.d(LOG_IMAGE, "图片读取成功，尺寸: " + bitmap.getWidth() + "x" + bitmap.getHeight());
             
             // 构建提示词
+            // 构建提示词
             String bodyInfo = (lolication == null || lolication.isEmpty()) ? "除了胸部外" : "";
-            String prompt = buildPrompt(scene, lolication == null ? "" : lolication, bodyInfo, pos == null ? "" : pos);
+            // 从配置文件获取提示词模板
+            String promptTemplate = getConfigString("prompts", "default", "");
+            String prompt = buildPrompt(promptTemplate, scene, lolication == null ? "" : lolication, bodyInfo, pos == null ? "" : pos);
+            logManager.d(LOG_PARAMS, "提示词构建完成，长度: " + prompt.length() + "字符");
             logManager.d(LOG_PARAMS, "提示词构建完成，长度: " + prompt.length() + "字符");
             
             // 更新通知
@@ -183,61 +235,117 @@ public class ImageGenerationService extends IntentService {
         }
     }
 
-    private String buildPrompt(String scene, String lolication, String bodyInfo, String pos) {
-        logManager.d(LOG_PARAMS, "构建提示词，参数：scene=" + scene + ", lolication=" + lolication + ", bodyInfo=" + bodyInfo + ", pos=" + pos);
-        
-        String prompt = "一张顶级专业cosplay摄影作品。主角是一位顶尖的中国女coser，她拥有姣好的面郎，化着淡妆，挺翘的鼻子，美瞳，化妆，白皮肤，" 
-                + lolication + "，光滑细腻的肌肤，情趣吊带袜，情趣蕾丝胸罩。她通过极其精致的妆容和神态表演，完美还原了图片主体的气质、发型和标志性表情。身材和图片一致。"
-                + bodyInfo + "。头发发质自然。她完整地穿着图片中的服装。"
-                + pos + "。服装材质表现出极高的真实感，有清晰的布料纹理、皮革光泽、丝袜质感和自然褶皱。年龄一致。\n"
-                + "完全重塑图片光影及质感。场景位于" + scene + "中。明亮丰富打光，光照细节丰富。\n"
-                + "最终画面要求顶级相机拍摄，RAW照片质感，皮肤纹理真实细腻，光影层次丰富。\n"
-                + "绝对禁止出现任何二次元、卡通、3D模型或绘画元素，确保最终结果是100%逼真的真人摄影作品，尤其是面部一定是真人的面部，禁止出现任何二次元、卡通、3D模型或绘画元素面部。\n"
-                + "生成时请思考画面是否真实？生成的coser是否和真人一样？如果不一样应该怎么办？";
-        
-        logManager.d(LOG_PARAMS, "提示词构建完成，长度：" + prompt.length() + "字符");
-        return prompt;
+    /**
+     * 构建提示词
+     * @param promptTemplate 提示词模板
+     * @param scene 场景
+     * @param lolication 胸部描述
+     * @param bodyInfo 身体信息
+     * @param pos 姿势
+     * @return 构建好的提示词
+     */
+/**
+ * 构建提示词
+ * @param promptTemplate 提示词模板
+ * @param scene 场景
+ * @param lolication 胸部描述
+ * @param bodyInfo 身体信息
+ * @param pos 姿势
+ * @return 构建好的提示词
+ */
+private String buildPrompt(String promptTemplate, String scene, String lolication, String bodyInfo, String pos) {
+    logManager.d(LOG_PARAMS, "构建提示词，参数：scene=" + scene + ", lolication=" + lolication + ", bodyInfo=" + bodyInfo + ", pos=" + pos);
+    
+    // 如果配置文件中没有提示词模板，使用默认模板
+    if (promptTemplate == null || promptTemplate.isEmpty()) {
+        promptTemplate = "一张顶级专业cosplay摄影作品。主角是一位顶尖的中国女coser，她拥有姣好的面郎，化着淡妆，挺翘的鼻子，美瞳，化妆，白皮肤，{lolication}，光滑细腻的肌肤，情趣吊带袜，情趣蕾丝胸罩。她通过极其精致的妆容和神态表演，完美还原了图片主体的气质、发型和标志性表情。身材和图片一致。{bodyInfo}。头发发质自然。她完整地穿着图片中的服装。{pos}。服装材质表现出极高的真实感，有清晰的布料纹理、皮革光泽、丝袜质感和自然褶皱。年龄一致。\n完全重塑图片光影及质感。场景位于{scene}中。明亮丰富打光，光照细节丰富。\n最终画面要求顶级相机拍摄，RAW照片质感，皮肤纹理真实细腻，光影层次丰富。\n绝对禁止出现任何二次元、卡通、3D模型或绘画元素，确保最终结果是100%逼真的真人摄影作品，尤其是面部一定是真人的面部，禁止出现任何二次元、卡通、3D模型或绘画元素面部。\n生成时请思考画面是否真实？生成的coser是否和真人一样？如果不一样应该怎么办？";
     }
+    
+    // 替换模板中的占位符
+    String prompt = promptTemplate
+            .replace("{scene}", scene)
+            .replace("{lolication}", lolication)
+            .replace("{bodyInfo}", bodyInfo)
+            .replace("{pos}", pos);
+    
+    logManager.d(LOG_PARAMS, "提示词构建完成，长度：" + prompt.length() + "字符");
+    return prompt;
+}
 
-    private Bitmap getBitmapFromUri(Uri uri) {
-        InputStream inputStream = null;
-        try {
-            logManager.d(LOG_IMAGE, "从URI读取图片: " + uri);
-            inputStream = getContentResolver().openInputStream(uri);
-            if (inputStream == null) {
-                logManager.e(LOG_ERROR_TAG, "无法打开输入流");
-                return null;
-            }
-            
-            Bitmap bitmap = BitmapFactory.decodeStream(inputStream);
-            if (bitmap != null) {
-                logManager.d(LOG_IMAGE, "图片读取成功，尺寸: " + bitmap.getWidth() + "x" + bitmap.getHeight() + ", 格式: ARGB_8888");
-                
-                // 如果图片过大，进行压缩
-                if (bitmap.getWidth() > 2048 || bitmap.getHeight() > 2048) {
-                    logManager.d(LOG_IMAGE, "图片过大，正在压缩...");
-                    bitmap = scaleBitmap(bitmap, 2048);
-                    logManager.d(LOG_IMAGE, "图片压缩完成，新尺寸: " + bitmap.getWidth() + "x" + bitmap.getHeight());
-                }
-                
-            } else {
-                logManager.e(LOG_ERROR_TAG, "图片解码失败，返回null");
-            }
-            return bitmap;
-        } catch (Exception e) {
-            logManager.e(LOG_ERROR_TAG, "读取图片时出错: " + e.getMessage(), e);
-            return null;
-        } finally {
-            if (inputStream != null) {
-                try {
-                    inputStream.close();
-                } catch (Exception e) {
-                    logManager.w(LOG_ERROR_TAG, "关闭输入流时出错: " + e.getMessage());
-                }
+private String bitmapToBase64(Bitmap bitmap) {
+    ByteArrayOutputStream baos = null;
+    try {
+        logManager.d(LOG_IMAGE, "开始将Bitmap转换为Base64");
+        baos = new ByteArrayOutputStream();
+        
+        // 从配置文件获取JPEG质量
+        int jpegQuality = getConfigInt("image", "jpegQuality", 90);
+        
+        bitmap.compress(Bitmap.CompressFormat.JPEG, jpegQuality, baos);
+        byte[] byteArray = baos.toByteArray();
+        logManager.d(LOG_IMAGE, "Bitmap压缩完成，JPEG质量: " + jpegQuality + "%, 大小: " + byteArray.length + "字节");
+
+        // 【修正】使用 NO_WRAP 标志，确保Base64字符串是单行连续的
+        String base64String = Base64.encodeToString(byteArray, Base64.NO_WRAP);
+        
+        logManager.d(LOG_IMAGE, "Base64编码完成，长度: " + base64String.length() + "字符");
+        return base64String;
+    } catch (Exception e) {
+        logManager.e(LOG_ERROR_TAG, "将Bitmap转换为Base64时出错: " + e.getMessage(), e);
+        return null;
+    } finally {
+        if (baos != null) {
+            try {
+                baos.close();
+            } catch (Exception e) {
+                logManager.w(LOG_ERROR_TAG, "关闭ByteArrayOutputStream时出错: " + e.getMessage());
             }
         }
     }
+}
 
+// 5. 修改后的getBitmapFromUri方法
+private Bitmap getBitmapFromUri(Uri uri) {
+    InputStream inputStream = null;
+    try {
+        logManager.d(LOG_IMAGE, "从URI读取图片: " + uri);
+        inputStream = getContentResolver().openInputStream(uri);
+        if (inputStream == null) {
+            logManager.e(LOG_ERROR_TAG, "无法打开输入流");
+            return null;
+        }
+        
+        Bitmap bitmap = BitmapFactory.decodeStream(inputStream);
+        if (bitmap != null) {
+            logManager.d(LOG_IMAGE, "图片读取成功，尺寸: " + bitmap.getWidth() + "x" + bitmap.getHeight() + ", 格式: ARGB_8888");
+            
+            // 从配置文件获取最大尺寸
+            int maxSize = getConfigInt("image", "maxSize", 2048);
+            
+            // 如果图片过大，进行压缩
+            if (bitmap.getWidth() > maxSize || bitmap.getHeight() > maxSize) {
+                logManager.d(LOG_IMAGE, "图片过大，正在压缩...");
+                bitmap = scaleBitmap(bitmap, maxSize);
+                logManager.d(LOG_IMAGE, "图片压缩完成，新尺寸: " + bitmap.getWidth() + "x" + bitmap.getHeight());
+            }
+            
+        } else {
+            logManager.e(LOG_ERROR_TAG, "图片解码失败，返回null");
+        }
+        return bitmap;
+    } catch (Exception e) {
+        logManager.e(LOG_ERROR_TAG, "读取图片时出错: " + e.getMessage(), e);
+        return null;
+    } finally {
+        if (inputStream != null) {
+            try {
+                inputStream.close();
+            } catch (Exception e) {
+                logManager.w(LOG_ERROR_TAG, "关闭输入流时出错: " + e.getMessage());
+            }
+        }
+    }
+}
     private Bitmap scaleBitmap(Bitmap bitmap, int maxSize) {
         int width = bitmap.getWidth();
         int height = bitmap.getHeight();
@@ -303,12 +411,16 @@ public class ImageGenerationService extends IntentService {
         return savedImagePaths;
     }
 
+
 private String callGeminiApi(String apiKey, String base64Image, String prompt) {
     Response response = null;
     try {
-        // 正确的 endpoint
-        String url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent";
+        // 从配置文件获取API端点和模型
+        String url = getConfigString("api", "endpoint", "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent");
+        String model = getConfigString("api", "model", "gemini-2.5-flash-image-preview");
+        
         logManager.d(LOG_API, "准备调用Gemini API: " + url);
+        logManager.d(LOG_API, "使用模型: " + model);
 
         // 构建请求体
         JsonObject requestBody = new JsonObject();
@@ -478,9 +590,13 @@ private String bitmapToBase64(Bitmap bitmap) {
     try {
         logManager.d(LOG_IMAGE, "开始将Bitmap转换为Base64");
         baos = new ByteArrayOutputStream();
-        bitmap.compress(Bitmap.CompressFormat.JPEG, 90, baos);
+        
+        // 从配置文件获取JPEG质量
+        int jpegQuality = getConfigInt("image", "jpegQuality", 90);
+        
+        bitmap.compress(Bitmap.CompressFormat.JPEG, jpegQuality, baos);
         byte[] byteArray = baos.toByteArray();
-        logManager.d(LOG_IMAGE, "Bitmap压缩完成，JPEG质量: 90%, 大小: " + byteArray.length + "字节");
+        logManager.d(LOG_IMAGE, "Bitmap压缩完成，JPEG质量: " + jpegQuality + "%, 大小: " + byteArray.length + "字节");
 
         // 【修正】使用 NO_WRAP 标志，确保Base64字符串是单行连续的
         String base64String = Base64.encodeToString(byteArray, Base64.NO_WRAP);
